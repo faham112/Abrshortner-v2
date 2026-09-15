@@ -1,6 +1,7 @@
 -- ============================================
--- ShortLink Multi-User Database Setup
--- Just import this in phpMyAdmin
+-- Abrshortner-v2 Database Setup
+-- Import this in phpMyAdmin (once)
+-- Admin account .env se banega (ADMIN_EMAIL / ADMIN_PASSWORD)
 -- ============================================
 
 CREATE TABLE IF NOT EXISTS `users` (
@@ -48,9 +49,3 @@ CREATE TABLE IF NOT EXISTS `clicks` (
   KEY `created_at` (`created_at`),
   KEY `is_bot` (`is_bot`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Default Admin Account
--- Email: admin@link666xx.com
--- Password: admin123
-INSERT INTO `users` (`name`, `email`, `password`, `role`) VALUES
-('Admin', 'admin@link666xx.com', '$2y$10$jA/JbxgE5rWnmr4Kh0DzcusuwW/d0ayPSfRusOQd78GM1zNPA3KY2', 'admin');

@@ -77,6 +77,32 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Create / update admin from .env (ADMIN_EMAIL + ADMIN_PASSWORD)
+try {
+    $adminEmail = trim($_ENV['ADMIN_EMAIL'] ?? '');
+    $adminPass  = $_ENV['ADMIN_PASSWORD'] ?? '';
+    $adminName  = trim($_ENV['ADMIN_NAME'] ?? 'Admin');
+    if ($adminEmail !== '' && $adminPass !== '') {
+        $stmt = $pdo->prepare("SELECT id, password FROM users WHERE email = ? LIMIT 1");
+        $stmt->execute([$adminEmail]);
+        $row = $stmt->fetch();
+        if ($row) {
+            if (!password_verify($adminPass, $row['password'])) {
+                $hash = password_hash($adminPass, PASSWORD_DEFAULT);
+                $pdo->prepare("UPDATE users SET name = ?, password = ?, role = 'admin' WHERE id = ?")
+                    ->execute([$adminName, $hash, $row['id']]);
+            } else {
+                $pdo->prepare("UPDATE users SET name = ?, role = 'admin' WHERE id = ?")
+                    ->execute([$adminName, $row['id']]);
+            }
+        } else {
+            $hash = password_hash($adminPass, PASSWORD_DEFAULT);
+            $pdo->prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'admin')")
+                ->execute([$adminName, $adminEmail, $hash]);
+        }
+    }
+} catch (Exception $e) {}
+
 function isLoggedIn() {
     return isset($_SESSION['user_id']);
 }
