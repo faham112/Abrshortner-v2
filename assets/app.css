@@ -10,6 +10,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .icon-btn{background:var(--bg2);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .icon-btn svg{width:18px;height:18px}
 .btn-logout{background:var(--err-bg);color:var(--err);border:1px solid var(--err);padding:6px 12px;border-radius:10px;font-size:12px;font-weight:600;text-decoration:none}
+.menu-wrap{position:relative}
+.menu-drop{display:none;position:absolute;right:0;top:44px;min-width:210px;background:var(--nav-bg);border:1px solid var(--border);border-radius:14px;padding:8px;z-index:80;box-shadow:var(--shadow)}
+.menu-drop.open{display:block}
+.menu-drop a{display:flex;align-items:center;gap:8px;padding:10px 12px;color:var(--text);text-decoration:none;border-radius:10px;font-size:13px}
+.menu-drop a:hover{background:var(--bg2)}
+.menu-drop svg{width:16px;height:16px}
 .container{max-width:700px;margin:0 auto;padding:16px}
 .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:16px}
 .stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:16px;text-align:center}
