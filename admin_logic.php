@@ -1,6 +1,8 @@
 <?php
 require 'config.php';
+require_once __DIR__ . '/license_lib.php';
 requireAdmin();
+abrEnsureLicensesTable($pdo);
 
 $message = '';
 $is_error = false;
@@ -81,6 +83,59 @@ if (isset($_GET['delete_link'])) {
     $pdo->prepare('DELETE FROM urls WHERE id = ?')->execute([$id]);
     header('Location: admin.php?tab=links&msg=deleted'); exit;
 }
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_license') {
+    $cname = trim($_POST['customer_name'] ?? '');
+    $site = trim($_POST['site_url'] ?? '');
+    $domain = abrNormDomain($site);
+    $tab = 'settings';
+    if ($cname === '' || $domain === '') {
+        $message = 'Customer name and site URL required';
+        $is_error = true;
+    } else {
+        try {
+            $key = abrGenLicenseKey();
+            $token = bin2hex(random_bytes(16));
+            $pdo->prepare('INSERT INTO licenses (customer_name, site_url, domain, license_key, token, status) VALUES (?,?,?,?,?,?)')
+                ->execute([$cname, $site, $domain, $key, $token, 'pending']);
+            header('Location: admin_settings.php?msg=license_created');
+            exit;
+        } catch (Exception $e) {
+            $message = 'Could not create license';
+            $is_error = true;
+        }
+    }
+}
+
+if (isset($_GET['revoke_license'])) {
+    $lid = (int)$_GET['revoke_license'];
+    $pdo->prepare("UPDATE licenses SET status='revoked' WHERE id=?")->execute([$lid]);
+    header('Location: admin_settings.php?msg=license_revoked');
+    exit;
+}
+
+if (isset($_GET['download_pack'])) {
+    $lid = (int)$_GET['download_pack'];
+    $st = $pdo->prepare('SELECT * FROM licenses WHERE id=?');
+    $st->execute([$lid]);
+    $lic = $st->fetch();
+    if ($lic) {
+        try {
+            $path = abrBuildStarterZip($lic, abrLicenseServerBase());
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="ABR-starter-' . $lic['domain'] . '.zip"');
+            header('Content-Length: ' . filesize($path));
+            readfile($path);
+            @unlink($path);
+            exit;
+        } catch (Exception $e) {
+            $message = $e->getMessage();
+            $is_error = true;
+            $tab = 'settings';
+        }
+    }
+}
+
 if (isset($_GET['edit'])) {
     $stmt = $pdo->prepare('SELECT * FROM urls WHERE id = ?');
     $stmt->execute([(int)$_GET['edit']]);
@@ -132,4 +187,6 @@ if ($stats_link_id > 0) {
 }
 if (isset($_GET['tab'])) $tab = $_GET['tab'];
 if ($stats_link_id > 0 && $stats) $tab = 'stats';
+$licenses = [];
+try { $licenses = $pdo->query('SELECT * FROM licenses ORDER BY id DESC')->fetchAll(); } catch (Exception $e) {}
 function barMax($rows) { if (empty($rows)) return 1; $m = max(array_map(function($r){return (int)$r['c'];}, $rows)); return $m > 0 ? $m : 1; }
