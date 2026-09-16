@@ -1,8 +1,12 @@
 <?php
 require 'config.php';
-require_once __DIR__ . '/license_lib.php';
+if (is_file(__DIR__ . '/license_lib.php')) {
+    require_once __DIR__ . '/license_lib.php';
+}
 requireAdmin();
-abrEnsureLicensesTable($pdo);
+if (function_exists('abrEnsureLicensesTable')) {
+    abrEnsureLicensesTable($pdo);
+}
 
 $message = '';
 $is_error = false;
@@ -84,7 +88,7 @@ if (isset($_GET['delete_link'])) {
     header('Location: admin.php?tab=links&msg=deleted'); exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_license') {
+if (function_exists('abrNormDomain') && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_license') {
     $cname = trim($_POST['customer_name'] ?? '');
     $site = trim($_POST['site_url'] ?? '');
     $domain = abrNormDomain($site);
@@ -114,7 +118,7 @@ if (isset($_GET['revoke_license'])) {
     exit;
 }
 
-if (isset($_GET['download_pack'])) {
+if (function_exists('abrBuildStarterZip') && isset($_GET['download_pack'])) {
     $lid = (int)$_GET['download_pack'];
     $st = $pdo->prepare('SELECT * FROM licenses WHERE id=?');
     $st->execute([$lid]);
