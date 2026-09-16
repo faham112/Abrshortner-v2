@@ -40,7 +40,34 @@ try {
     die("Database connection failed: " . $e->getMessage());
 }
 
-// Auto-migrate missing columns / tables
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `users` (
+      `id` int(11) NOT NULL AUTO_INCREMENT,
+      `name` varchar(100) NOT NULL,
+      `email` varchar(150) NOT NULL,
+      `password` varchar(255) NOT NULL,
+      `role` enum('admin','user') NOT NULL DEFAULT 'user',
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `email` (`email`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `urls` (
+      `id` int(11) NOT NULL AUTO_INCREMENT,
+      `user_id` int(11) NOT NULL,
+      `short_code` varchar(20) NOT NULL,
+      `long_url` text NOT NULL,
+      `title` varchar(255) DEFAULT NULL,
+      `image_url` text DEFAULT NULL,
+      `description` text DEFAULT NULL,
+      `preview_enabled` tinyint(1) NOT NULL DEFAULT 1,
+      `clicks` int(11) NOT NULL DEFAULT 0,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `short_code` (`short_code`),
+      KEY `user_id` (`user_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+} catch (Exception $e) {}
+
 try {
     $cols = $pdo->query("SHOW COLUMNS FROM urls LIKE 'preview_enabled'")->fetch();
     if (!$cols) {
@@ -73,11 +100,28 @@ try {
     } catch (Exception $e2) {}
 }
 
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `licenses` (
+      `id` int(11) NOT NULL AUTO_INCREMENT,
+      `customer_name` varchar(150) NOT NULL,
+      `site_url` varchar(255) NOT NULL,
+      `domain` varchar(180) NOT NULL,
+      `license_key` varchar(64) NOT NULL,
+      `token` varchar(64) NOT NULL,
+      `status` enum('pending','active','revoked') NOT NULL DEFAULT 'pending',
+      `activated_at` datetime DEFAULT NULL,
+      `last_check` datetime DEFAULT NULL,
+      `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (`id`),
+      UNIQUE KEY `license_key` (`license_key`),
+      KEY `domain` (`domain`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+} catch (Exception $e) {}
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Create / update admin from .env (ADMIN_EMAIL + ADMIN_PASSWORD)
 try {
     $adminEmail = trim($_ENV['ADMIN_EMAIL'] ?? '');
     $adminPass  = $_ENV['ADMIN_PASSWORD'] ?? '';
@@ -106,31 +150,19 @@ try {
 function isLoggedIn() {
     return isset($_SESSION['user_id']);
 }
-
 function isAdmin() {
     return isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
 }
-
 function requireLogin() {
-    if (!isLoggedIn()) {
-        header("Location: login.php");
-        exit;
-    }
+    if (!isLoggedIn()) { header("Location: login.php"); exit; }
 }
-
 function requireAdmin() {
     requireLogin();
-    if (!isAdmin()) {
-        header("Location: dashboard.php");
-        exit;
-    }
+    if (!isAdmin()) { header("Location: dashboard.php"); exit; }
 }
-
 function generateShortCode($length = 6) {
     $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     $code = '';
-    for ($i = 0; $i < $length; $i++) {
-        $code .= $chars[random_int(0, strlen($chars) - 1)];
-    }
+    for ($i = 0; $i < $length; $i++) $code .= $chars[random_int(0, strlen($chars) - 1)];
     return $code;
 }
