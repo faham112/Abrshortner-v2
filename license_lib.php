@@ -16,7 +16,6 @@ function abrEnsureLicensesTable(PDO $pdo) {
       KEY `domain` (`domain`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 }
-
 function abrNormDomain($url) {
     $url = trim($url);
     if ($url === '') return '';
@@ -24,204 +23,124 @@ function abrNormDomain($url) {
     $host = parse_url($url, PHP_URL_HOST);
     if (!$host) $host = preg_replace('~^www\.~i', '', strtolower($url));
     $host = strtolower($host);
-    $host = preg_replace('~^www\.~i', '', $host);
-    return $host;
+    return preg_replace('~^www\.~i', '', $host);
 }
-
 function abrGenLicenseKey() {
-    $a = strtoupper(bin2hex(random_bytes(3)));
-    $b = strtoupper(bin2hex(random_bytes(3)));
-    return 'ABR-' . $a . '-' . $b;
+    return 'ABR-' . strtoupper(bin2hex(random_bytes(3))) . '-' . strtoupper(bin2hex(random_bytes(3)));
 }
-
 function abrLicenseServerBase() {
     $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['SERVER_PORT'] ?? '') == 443);
-    $scheme = $https ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'] ?? 'test.link666xx.com';
-    return $scheme . '://' . $host;
+    return ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'test.link666xx.com');
 }
-
 function abrPayloadFiles() {
-    return [
-        'config.php',
-        'login.php',
-        'logout.php',
-        'index.php',
-        'redirect.php',
-        '.htaccess',
-        'admin.php',
-        'admin_logic.php',
-        'admin_view.php',
-        'dashboard.php',
-        'dashboard_logic.php',
-        'dashboard_view.php',
-        'database.sql',
-        'assets/app.css',
-        'uploads/.gitkeep',
-    ];
+    return ['config.php','login.php','logout.php','index.php','redirect.php','.htaccess','admin.php','admin_logic.php','admin_view.php','dashboard.php','dashboard_logic.php','dashboard_view.php','database.sql','assets/app.css','uploads/.gitkeep'];
 }
-
 function abrBuildStarterZip($license, $serverBase) {
-    if (!class_exists('ZipArchive')) {
-        throw new RuntimeException('PHP zip extension missing. Run: sudo apt install php8.5-zip');
-    }
+    if (!class_exists('ZipArchive')) throw new RuntimeException('PHP zip extension missing');
     $tmp = sys_get_temp_dir() . '/abr_starter_' . $license['id'] . '_' . bin2hex(random_bytes(3)) . '.zip';
     $zip = new ZipArchive();
-    if ($zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-        throw new RuntimeException('Cannot create zip');
-    }
-    $install = abrInstallTemplate($serverBase);
-    $zip->addFromString('install.php', $install);
+    if ($zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Cannot create zip');
+    $zip->addFromString('install.php', abrInstallTemplate($serverBase));
     $zip->addFromString('index.php', "<?php\nheader('Location: install.php');\nexit;\n");
     $zip->addFromString('.htaccess', "DirectoryIndex install.php index.php\n<FilesMatch \"\\.(env|json)$\">\nRequire all denied\n</FilesMatch>\n");
-    $readme = "ABR Shortener \xe2\x80\x94 Starter Pack (50%)\n\nCustomer: {$license['customer_name']}\nLicensed domain: {$license['domain']}\nLicense key: {$license['license_key']}\nToken: {$license['token']}\n\n1. Upload ALL files from this zip into public_html\n2. Open https://{$license['domain']}/install.php\n3. Paste License Key + Token\n4. Enter MySQL details\n5. Remaining files download from license server\n6. Login and use on ONE domain only\n";
-    $zip->addFromString('README.txt', $readme);
+    $zip->addFromString('README.txt', "Upload to public_html. Open /install.php. Step1 license. Step2 Download resources. Step3 Login.\nKey: {$license['license_key']}\nToken: {$license['token']}\nDomain: {$license['domain']}\n");
     $zip->close();
     return $tmp;
 }
-
 function abrBuildPayloadZip($root) {
-    if (!class_exists('ZipArchive')) {
-        throw new RuntimeException('PHP zip extension missing');
-    }
+    if (!class_exists('ZipArchive')) throw new RuntimeException('PHP zip extension missing');
     $tmp = sys_get_temp_dir() . '/abr_full_' . bin2hex(random_bytes(4)) . '.zip';
     $zip = new ZipArchive();
-    if ($zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-        throw new RuntimeException('Cannot create payload zip');
-    }
-    foreach (abrPayloadFiles() as $rel) {
-        $path = $root . '/' . $rel;
-        if (is_file($path)) {
-            $zip->addFile($path, $rel);
-        }
-    }
+    if ($zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Cannot create payload zip');
+    foreach (abrPayloadFiles() as $rel) { if (is_file($root . '/' . $rel)) $zip->addFile($root . '/' . $rel, $rel); }
     $zip->close();
     return $tmp;
 }
-
 function abrInstallTemplate($serverBase) {
     $serverBase = rtrim($serverBase, '/');
-    return <<<PHP
+    $php = <<<'PHP'
 <?php
-\$LICENSE_SERVER = '{$serverBase}/license_api.php';
-\$lock = __DIR__ . '/license.json';
-if (is_file(\$lock) && !isset(\$_GET['reinstall'])) {
-    header('Location: login.php');
-    exit;
+$LICENSE_SERVER = 'SERVER_BASE_PLACEHOLDER/license_api.php';
+$lock = __DIR__ . '/license.json';
+$stateFile = __DIR__ . '/install_state.json';
+if (is_file($lock) && is_file(__DIR__ . '/login.php') && !isset($_GET['reinstall'])) { header('Location: login.php'); exit; }
+$err = '';
+$state = is_file($stateFile) ? (json_decode(file_get_contents($stateFile), true) ?: []) : [];
+$step = $state['step'] ?? 1;
+function abrCallLicense($url, $action, $key, $token, $domain) {
+    $ctx = stream_context_create(['http' => ['method' => 'POST', 'header' => "Content-Type: application/x-www-form-urlencoded\r\n", 'content' => http_build_query(['action'=>$action,'license_key'=>$key,'token'=>$token,'domain'=>$domain]), 'timeout' => 90], 'ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
+    return json_decode(@file_get_contents($url, false, $ctx), true);
 }
-\$err = '';
-if (\$_SERVER['REQUEST_METHOD'] === 'POST') {
-    \$key = trim(\$_POST['license_key'] ?? '');
-    \$token = trim(\$_POST['token'] ?? '');
-    \$domain = trim(\$_POST['site_url'] ?? '');
-    \$dbHost = trim(\$_POST['db_host'] ?? 'localhost');
-    \$dbName = trim(\$_POST['db_name'] ?? '');
-    \$dbUser = trim(\$_POST['db_user'] ?? '');
-    \$dbPass = \$_POST['db_pass'] ?? '';
-    \$adminName = trim(\$_POST['admin_name'] ?? 'Admin');
-    \$adminEmail = trim(\$_POST['admin_email'] ?? '');
-    \$adminPass = \$_POST['admin_password'] ?? '';
-    if (\$key === '' || \$token === '' || \$domain === '' || \$dbName === '' || \$dbUser === '' || \$adminEmail === '' || \$adminPass === '') {
-        \$err = 'All required fields must be filled.';
-    } else {
-        \$payload = http_build_query([
-            'action' => 'activate',
-            'license_key' => \$key,
-            'token' => \$token,
-            'domain' => \$domain,
-        ]);
-        \$ctx = stream_context_create(['http' => [
-            'method' => 'POST',
-            'header' => "Content-Type: application/x-www-form-urlencoded\\r\\n",
-            'content' => \$payload,
-            'timeout' => 60,
-        ], 'ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
-        \$raw = @file_get_contents(\$LICENSE_SERVER, false, \$ctx);
-        \$json = json_decode(\$raw, true);
-        if (!is_array(\$json) || empty(\$json['ok'])) {
-            \$err = \$json['error'] ?? 'License server rejected this key / domain.';
-        } else {
-            \$zipData = base64_decode(\$json['zip'] ?? '');
-            if (\$zipData === false || strlen(\$zipData) < 100) {
-                \$err = 'Payload download failed.';
-            } elseif (!class_exists('ZipArchive')) {
-                \$err = 'Enable PHP zip extension on this hosting.';
-            } else {
-                \$tmp = sys_get_temp_dir() . '/abr_in_' . bin2hex(random_bytes(3)) . '.zip';
-                file_put_contents(\$tmp, \$zipData);
-                \$zip = new ZipArchive();
-                if (\$zip->open(\$tmp) !== true) {
-                    \$err = 'Cannot open payload zip.';
-                } else {
-                    \$zip->extractTo(__DIR__);
-                    \$zip->close();
-                    @unlink(\$tmp);
-                    \$env = "DB_HOST={\$dbHost}\\nDB_NAME={\$dbName}\\nDB_USER={\$dbUser}\\nDB_PASS={\$dbPass}\\nDB_CHARSET=utf8mb4\\n\\nADMIN_NAME={\$adminName}\\nADMIN_EMAIL={\$adminEmail}\\nADMIN_PASSWORD={\$adminPass}\\n";
-                    file_put_contents(__DIR__ . '/.env', \$env);
-                    @chmod(__DIR__ . '/.env', 0640);
-                    file_put_contents(\$lock, json_encode([
-                        'license_key' => \$key,
-                        'domain' => \$domain,
-                        'activated_at' => date('c'),
-                        'server' => \$LICENSE_SERVER,
-                    ], JSON_PRETTY_PRINT));
-                    if (!is_dir(__DIR__ . '/uploads')) mkdir(__DIR__ . '/uploads', 0755, true);
-                    header('Location: login.php?installed=1');
-                    exit;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $do = $_POST['do'] ?? '';
+    if ($do === 'license') {
+        $key = trim($_POST['license_key'] ?? ''); $token = trim($_POST['token'] ?? ''); $domain = trim($_POST['site_url'] ?? '');
+        $dbHost = trim($_POST['db_host'] ?? 'localhost'); $dbName = trim($_POST['db_name'] ?? ''); $dbUser = trim($_POST['db_user'] ?? ''); $dbPass = $_POST['db_pass'] ?? '';
+        $adminName = trim($_POST['admin_name'] ?? 'Admin'); $adminEmail = trim($_POST['admin_email'] ?? ''); $adminPass = $_POST['admin_password'] ?? '';
+        if ($key===''||$token===''||$domain===''||$dbName===''||$dbUser===''||$adminEmail===''||$adminPass==='') { $err='All required fields must be filled.'; $step=1; }
+        else {
+            $json = abrCallLicense($LICENSE_SERVER, 'check', $key, $token, $domain);
+            if (!is_array($json) || empty($json['ok'])) { $err = $json['error'] ?? 'License rejected.'; $step=1; }
+            else {
+                $state = compact('key') + ['step'=>2,'license_key'=>$key,'token'=>$token,'domain'=>$domain,'db_host'=>$dbHost,'db_name'=>$dbName,'db_user'=>$dbUser,'db_pass'=>$dbPass,'admin_name'=>$adminName,'admin_email'=>$adminEmail,'admin_password'=>$adminPass];
+                file_put_contents($stateFile, json_encode($state)); $step=2;
+            }
+        }
+    } elseif ($do === 'download') {
+        $step=2;
+        if (empty($state['license_key'])) { $err='Complete license step first.'; $step=1; }
+        else {
+            $json = abrCallLicense($LICENSE_SERVER, 'activate', $state['license_key'], $state['token'], $state['domain']);
+            if (!is_array($json) || empty($json['ok'])) { $err = $json['error'] ?? 'Resource download failed.'; }
+            else {
+                $zipData = base64_decode($json['zip'] ?? '');
+                if ($zipData === false || strlen($zipData) < 100) { $err='Payload download failed.'; }
+                elseif (!class_exists('ZipArchive')) { $err='Enable PHP zip extension.'; }
+                else {
+                    $tmp = sys_get_temp_dir() . '/abr_in_' . bin2hex(random_bytes(3)) . '.zip';
+                    file_put_contents($tmp, $zipData);
+                    $zip = new ZipArchive();
+                    if ($zip->open($tmp) !== true) { $err='Cannot open resource zip.'; }
+                    else {
+                        $zip->extractTo(__DIR__); $zip->close(); @unlink($tmp);
+                        file_put_contents(__DIR__.'/.env', "DB_HOST={$state['db_host']}\nDB_NAME={$state['db_name']}\nDB_USER={$state['db_user']}\nDB_PASS={$state['db_pass']}\nDB_CHARSET=utf8mb4\n\nADMIN_NAME={$state['admin_name']}\nADMIN_EMAIL={$state['admin_email']}\nADMIN_PASSWORD={$state['admin_password']}\n");
+                        @chmod(__DIR__.'/.env', 0640);
+                        file_put_contents($lock, json_encode(['license_key'=>$state['license_key'],'domain'=>$state['domain'],'activated_at'=>date('c'),'server'=>$LICENSE_SERVER], JSON_PRETTY_PRINT));
+                        if (!is_dir(__DIR__.'/uploads')) mkdir(__DIR__.'/uploads', 0755, true);
+                        $state['step']=3; file_put_contents($stateFile, json_encode($state)); $step=3;
+                    }
                 }
             }
         }
     }
 }
-\$guess = \$_SERVER['HTTP_HOST'] ?? '';
+$guess = $_SERVER['HTTP_HOST'] ?? '';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>License Required \xe2\x80\x94 ABR Shortener</title>
-<style>
-body{margin:0;font-family:system-ui,sans-serif;background:#0f0a1f;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.box{width:100%;max-width:440px;background:rgba(255,255,255,.05);border:1px solid rgba(167,139,250,.2);border-radius:18px;padding:24px}
-h1{margin:0 0 6px;font-size:22px;color:#e9d5ff}
-p{color:#94a3b8;font-size:13px;margin:0 0 16px}
-label{display:block;font-size:12px;margin:10px 0 4px;color:#c4b5fd}
-input{width:100%;box-sizing:border-box;padding:11px 12px;border-radius:10px;border:1px solid rgba(167,139,250,.25);background:rgba(15,10,31,.6);color:#fff}
-button{width:100%;margin-top:16px;padding:12px;border:0;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff;font-weight:600;cursor:pointer}
-.err{background:rgba(248,113,113,.15);color:#f87171;padding:10px;border-radius:10px;margin-bottom:12px;font-size:13px}
-</style>
-</head>
-<body>
-<div class="box">
-<h1>License required</h1>
-<p>If you are interested to use this script, enter the license key shared by ABR Admin. Files for this one domain will download after verification.</p>
-<?php if (\$err): ?><div class="err"><?= htmlspecialchars(\$err) ?></div><?php endif; ?>
-<form method="post">
-<label>License key</label>
-<input name="license_key" required placeholder="ABR-XXXXXX-XXXXXX">
-<label>Share token</label>
-<input name="token" required placeholder="Token from admin">
-<label>Site URL / domain</label>
-<input name="site_url" required value="<?= htmlspecialchars(\$guess) ?>" placeholder="client.com">
-<label>DB host</label>
-<input name="db_host" value="localhost">
-<label>DB name</label>
-<input name="db_name" required>
-<label>DB user</label>
-<input name="db_user" required>
-<label>DB password</label>
-<input name="db_pass" type="password">
-<label>Admin name</label>
-<input name="admin_name" value="Admin">
-<label>Admin email</label>
-<input name="admin_email" type="email" required>
-<label>Admin password</label>
-<input name="admin_password" type="password" required>
-<button type="submit">Activate license &amp; install</button>
-</form>
-</div>
-</body>
-</html>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Install</title>
+<style>body{margin:0;font-family:system-ui;background:#0f0a1f;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.box{width:100%;max-width:440px;background:rgba(255,255,255,.05);border:1px solid rgba(167,139,250,.2);border-radius:18px;padding:24px}h1{margin:0 0 6px;font-size:22px;color:#e9d5ff}p{color:#94a3b8;font-size:13px}label{display:block;font-size:12px;margin:10px 0 4px;color:#c4b5fd}input{width:100%;box-sizing:border-box;padding:11px 12px;border-radius:10px;border:1px solid rgba(167,139,250,.25);background:rgba(15,10,31,.6);color:#fff}button,.btn{display:block;width:100%;margin-top:16px;padding:12px;border:0;border-radius:12px;background:linear-gradient(135deg,#7c3aed,#a78bfa);color:#fff;font-weight:600;text-align:center;text-decoration:none;box-sizing:border-box}.err{background:rgba(248,113,113,.15);color:#f87171;padding:10px;border-radius:10px;margin-bottom:12px}.ok{background:rgba(34,197,94,.15);color:#4ade80;padding:10px;border-radius:10px;margin-bottom:12px}.steps{display:flex;gap:6px;margin-bottom:16px;font-size:11px}.steps span{flex:1;text-align:center;padding:6px;border-radius:8px;background:rgba(255,255,255,.04)}.steps span.on{background:rgba(124,58,237,.35);color:#e9d5ff}</style></head>
+<body><div class="box"><div class="steps"><span class="<?= $step===1?'on':'' ?>">1. Install</span><span class="<?= $step===2?'on':'' ?>">2. Resources</span><span class="<?= $step===3?'on':'' ?>">3. Login</span></div>
+<?php if ($err): ?><div class="err"><?= htmlspecialchars($err) ?></div><?php endif; ?>
+<?php if ($step===1): ?>
+<h1>License required</h1><p>Enter license, then download resources.</p>
+<form method="post"><input type="hidden" name="do" value="license">
+<label>License key</label><input name="license_key" required placeholder="ABR-XXXXXX-XXXXXX">
+<label>Share token</label><input name="token" required>
+<label>Site URL</label><input name="site_url" required value="<?= htmlspecialchars($guess) ?>">
+<label>DB host</label><input name="db_host" value="localhost">
+<label>DB name</label><input name="db_name" required>
+<label>DB user</label><input name="db_user" required>
+<label>DB password</label><input name="db_pass" type="password">
+<label>Admin name</label><input name="admin_name" value="Admin">
+<label>Admin email</label><input name="admin_email" type="email" required>
+<label>Admin password</label><input name="admin_password" type="password" required>
+<button type="submit">Continue</button></form>
+<?php elseif ($step===2): ?>
+<h1>Download resources</h1><p>License accepted. Download remaining files from the license server.</p>
+<form method="post"><input type="hidden" name="do" value="download"><button type="submit">Download resources</button></form>
+<?php else: ?>
+<h1>Install complete</h1><div class="ok">Resources downloaded.</div>
+<a class="btn" href="login.php">Open login form</a>
+<?php endif; ?></div></body></html>
 PHP;
+    return str_replace('SERVER_BASE_PLACEHOLDER', $serverBase, $php);
 }
