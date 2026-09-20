@@ -80,8 +80,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             color: white;
             font-size: 16px;
             outline: none;
+            transition: all 0.2s;
         }
         input::placeholder { color: rgba(255,255,255,0.4); }
+        input:focus { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.15); }
         .btn {
             width: 100%;
             padding: 15px;
@@ -93,7 +95,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-weight: 700;
             cursor: pointer;
             margin-top: 10px;
+            transition: transform 0.15s, box-shadow 0.15s;
         }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .error {
             background: rgba(239, 68, 68, 0.2);
             border: 1px solid rgba(239, 68, 68, 0.4);
@@ -112,9 +116,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h1>ShortLink</h1>
             <p>Sign in to continue</p>
         </div>
+
         <?php if ($error): ?>
             <div class="error"><?= htmlspecialchars($error) ?></div>
         <?php endif; ?>
+
         <form method="POST">
             <div class="form-group">
                 <label>Email</label>
@@ -128,5 +134,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="submit" class="btn">Login</button>
         </form>
     </div>
+
 </body>
 </html>
