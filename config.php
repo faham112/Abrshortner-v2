@@ -40,6 +40,7 @@ try {
     die("Database connection failed: " . $e->getMessage());
 }
 
+// Auto-migrate missing columns / tables
 try {
     $cols = $pdo->query("SHOW COLUMNS FROM urls LIKE 'preview_enabled'")->fetch();
     if (!$cols) {
@@ -76,6 +77,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Create / update admin from .env (ADMIN_EMAIL + ADMIN_PASSWORD)
 try {
     $adminEmail = trim($_ENV['ADMIN_EMAIL'] ?? '');
     $adminPass  = $_ENV['ADMIN_PASSWORD'] ?? '';
