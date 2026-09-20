@@ -24,7 +24,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['name']    = $user['name'];
             $_SESSION['email']   = $user['email'];
             $_SESSION['role']    = $user['role'];
-            header("Location: " . ($user['role'] === 'admin' ? "admin.php" : "dashboard.php"));
+
+            if ($user['role'] === 'admin') {
+                header("Location: admin.php");
+            } else {
+                header("Location: dashboard.php");
+            }
             exit;
         } else {
             $error = "Galat Email ya Password";
@@ -41,40 +46,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             min-height: 100vh;
-            background:
-                radial-gradient(1200px 600px at 8% -12%, rgba(255,255,255,.9), transparent 55%),
-                linear-gradient(180deg, #f2f2f7 0%, #e5e5ea 100%);
-            display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;
+            background: linear-gradient(135deg, #4c1d95 0%, #7c3aed 50%, #a78bfa 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
         }
         .glass {
-            background: rgba(255, 255, 255, 0.74);
-            backdrop-filter: blur(22px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.85);
-            border-radius: 24px; padding: 40px 30px; width: 100%; max-width: 400px;
-            box-shadow: 0 10px 30px rgba(15,15,20,.06);
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            padding: 40px 30px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.25);
         }
         .logo { text-align: center; margin-bottom: 30px; }
-        .logo h1 { color: #1c1c1e; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
-        .logo p { color: #8e8e93; font-size: 14px; margin-top: 6px; }
+        .logo h1 { color: white; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+        .logo p { color: rgba(255,255,255,0.7); font-size: 14px; margin-top: 6px; }
         .form-group { margin-bottom: 18px; }
-        label { display: block; color: #6e6e73; font-size: 13px; margin-bottom: 6px; font-weight: 500; }
+        label { display: block; color: rgba(255,255,255,0.85); font-size: 13px; margin-bottom: 6px; font-weight: 500; }
         input {
-            width: 100%; padding: 14px 16px; border-radius: 14px;
-            border: 1px solid rgba(60,60,67,.18); background: rgba(255,255,255,.92);
-            color: #1c1c1e; font-size: 16px; outline: none;
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 16px;
+            outline: none;
         }
-        input::placeholder { color: #aeaeb2; }
-        input:focus { border-color: #1c1c1e; }
+        input::placeholder { color: rgba(255,255,255,0.4); }
         .btn {
-            width: 100%; padding: 15px; border: none; border-radius: 14px;
-            background: #1c1c1e; color: #f5f5f7; font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 10px;
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 14px;
+            background: white;
+            color: #6d28d9;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 10px;
         }
-        .error { background: rgba(255, 59, 48, 0.12); border: 1px solid rgba(215, 0, 21, 0.25); color: #d70015; padding: 12px; border-radius: 12px; font-size: 14px; margin-bottom: 18px; text-align: center; }
-        .pass-wrap { position: relative; }
-        .pass-wrap input { padding-right: 52px; }
-        .pass-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: #8e8e93; font-size: 12px; font-weight: 600; cursor: pointer; padding: 6px 8px; }
+        .error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fecaca;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            margin-bottom: 18px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -83,34 +112,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h1>ShortLink</h1>
             <p>Sign in to continue</p>
         </div>
-        <?php if ($error): ?><div class="error"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+        <?php if ($error): ?>
+            <div class="error"><?= htmlspecialchars($error) ?></div>
+        <?php endif; ?>
         <form method="POST">
             <div class="form-group">
                 <label>Email</label>
-                <input type="email" name="email" placeholder="you@example.com" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
+                <input type="email" name="email" placeholder="you@example.com" required
+                       value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
             </div>
             <div class="form-group">
                 <label>Password</label>
-                <div class="pass-wrap">
-                    <input type="password" name="password" id="loginPass" placeholder="••••••••" required>
-                    <button type="button" class="pass-toggle" id="passToggle" aria-label="Show password">Show</button>
-                </div>
+                <input type="password" name="password" placeholder="••••••••" required>
             </div>
             <button type="submit" class="btn">Login</button>
         </form>
     </div>
-<script>
-(function(){
-  var input = document.getElementById('loginPass');
-  var btn = document.getElementById('passToggle');
-  if (!input || !btn) return;
-  btn.addEventListener('click', function(){
-    var show = input.type === 'password';
-    input.type = show ? 'text' : 'password';
-    btn.textContent = show ? 'Hide' : 'Show';
-    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
-  });
-})();
-</script>
 </body>
 </html>
