@@ -5,29 +5,40 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Admin - ShortLink</title>
 <script src="https://unpkg.com/lucide@latest"></script>
-<link rel="stylesheet" href="assets/app.css?v=20260920c">
-
+<link rel="stylesheet" href="assets/app.css?v=20260920d">
 </head>
 <body>
-<div class="header">
-<h1>Admin Panel</h1>
-<div class="header-right">
-<button type="button" class="icon-btn" id="themeToggle" title="Toggle theme" aria-label="Toggle dark/light mode"><i data-lucide="moon" id="themeIcon"></i></button>
-<span class="badge">Admin</span>
-<div class="menu-wrap">
-<button type="button" class="icon-btn" id="menuBtn" aria-label="Menu"><i data-lucide="menu"></i></button>
-<div class="menu-drop" id="menuDrop">
-<a href="admin_settings.php"><i data-lucide="settings"></i> Settings / License</a>
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+<div class="drawer-head">
+<h2>Menu</h2>
+<button type="button" class="icon-btn" id="drawerClose" aria-label="Close"><i data-lucide="x"></i></button>
+</div>
+<div class="drawer-user"><?= htmlspecialchars($_SESSION['name'] ?? 'Admin') ?></div>
+<a href="admin.php?tab=home"><i data-lucide="home"></i> Home</a>
+<a href="admin.php?tab=create"><i data-lucide="plus"></i> Create link</a>
+<a href="admin.php?tab=analytics"><i data-lucide="bar-chart-2"></i> Analytics</a>
 <a href="admin.php?tab=users"><i data-lucide="users"></i> Users</a>
-<a href="logout.php"><i data-lucide="log-out"></i> Logout</a>
+<a href="admin.php?tab=links"><i data-lucide="link"></i> All links</a>
+<a href="admin_settings.php"><i data-lucide="key-round"></i> License HQ</a>
+<a href="admin.php?tab=settings"><i data-lucide="settings"></i> Settings</a>
+<button type="button" class="drawer-link" id="themeToggle"><i data-lucide="moon" id="themeIcon"></i> Toggle theme</button>
+<div class="drawer-foot">
+<a class="danger" href="logout.php"><i data-lucide="log-out"></i> Logout</a>
 </div>
+</aside>
+<div class="header">
+<div class="header-left">
+<button type="button" class="icon-btn" id="menuBtn" aria-label="Open menu"><i data-lucide="menu"></i></button>
+<h1>Admin Panel</h1>
 </div>
+<div class="header-right">
+<span class="badge">Admin</span>
 </div>
 </div>
 <div class="container">
 <?php if (isset($_GET['msg'])): ?><div class="msg"><?php $msgs=['created'=>'Link created!','updated'=>'Link updated!','deleted'=>'Link deleted!','user_created'=>'User created!','user_deleted'=>'User deleted!','license_created'=>'License created. Share key + token, then send starter zip.','license_revoked'=>'License revoked']; echo $msgs[$_GET['msg']]??''; ?></div><?php endif; ?>
 <?php if ($message): ?><div class="msg <?= $is_error?'error':'' ?>"><?= htmlspecialchars($message) ?></div><?php endif; ?>
-
 <div class="card <?= ($tab==='home'||$tab==='')?'active':'' ?>">
 <h2>Overview</h2>
 <div class="stats">
@@ -45,7 +56,6 @@
 <a href="?delete_user=<?= (int)$u['id'] ?>" class="del-btn" onclick="return confirm('Delete?')">Delete</a></div>
 <?php endforeach; ?><a href="admin.php?tab=users" class="cancel">View all users →</a><?php endif; ?>
 </div>
-
 <div class="card <?= $tab==='analytics'?'active':'' ?>">
 <h2>Analytics</h2>
 <div class="stats">
@@ -59,7 +69,7 @@
 <?php $maxd=barMax($by_device); foreach ($by_device as $row): $pct=round(((int)$row['c']/$maxd)*100); ?>
 <div class="stat-row"><span><?= htmlspecialchars($row['device']) ?></span><span><?= (int)$row['c'] ?></span></div>
 <div class="stat-bar-wrap"><div class="stat-bar" style="width:<?= $pct ?>%"></div></div>
-<?php endforeach; if (empty($by_device)): ?><p class="empty" style="padding:8px 0;">No clicks yet — open a short link once</p><?php endif; ?>
+<?php endforeach; if (empty($by_device)): ?><p class="empty" style="padding:8px 0;">No clicks yet</p><?php endif; ?>
 <div class="chart-grid">
 <div class="chart-box"><h4>Browser</h4>
 <?php $maxb=barMax($by_browser); foreach (array_slice($by_browser,0,6) as $row): $pct=round(((int)$row['c']/$maxb)*100); ?>
@@ -88,7 +98,6 @@
 <div class="click-row"><strong>/<?= htmlspecialchars($c['short_code']??'?') ?></strong> · <?= htmlspecialchars($c['device']??'-') ?> · <?= htmlspecialchars($c['browser']??'-') ?><?php if (!empty($c['country'])): ?> · <?= htmlspecialchars($c['country']) ?><?php endif; ?><br><?= htmlspecialchars($c['ip']??'-') ?> · <?= htmlspecialchars($c['created_at']??'') ?></div>
 <?php endforeach; if (empty($recent_clicks_global)): ?><p class="empty" style="padding:8px 0;">No clicks logged yet</p><?php endif; ?>
 </div>
-
 <div class="card <?= $tab==='create'?'active':'' ?>">
 <h2><?= $edit_data?'Edit Link':'Create Short Link' ?></h2>
 <?php $editPreviewOn=true; if ($edit_data && array_key_exists('preview_enabled',$edit_data)) $editPreviewOn=((int)$edit_data['preview_enabled']===1); ?>
@@ -127,7 +136,6 @@ $pOn=!array_key_exists('preview_enabled',$link)||(int)$link['preview_enabled']==
 </div></div>
 <?php endforeach; endif; endif; ?>
 </div>
-
 <div class="card <?= $tab==='users'?'active':'' ?>">
 <h2>Create New User</h2>
 <form method="POST"><input type="hidden" name="action" value="create_user">
@@ -142,7 +150,6 @@ $pOn=!array_key_exists('preview_enabled',$link)||(int)$link['preview_enabled']==
 <a href="?delete_user=<?= (int)$u['id'] ?>" class="del-btn" onclick="return confirm('Delete?')">Delete</a></div>
 <?php endforeach; endif; ?>
 </div>
-
 <div class="card <?= $tab==='links'?'active':'' ?>">
 <h2>All Links</h2>
 <form method="GET" class="search-bar"><input type="hidden" name="tab" value="links">
@@ -165,7 +172,6 @@ $pOn=!array_key_exists('preview_enabled',$link)||(int)$link['preview_enabled']==
 </div></div>
 <?php endforeach; endif; ?>
 </div>
-
 <div class="card <?= $tab==='stats'?'active':'' ?>">
 <?php if ($stats): ?>
 <h2>Link Analytics</h2>
@@ -193,10 +199,9 @@ $pOn=!array_key_exists('preview_enabled',$link)||(int)$link['preview_enabled']==
 <a href="admin.php?tab=links" class="cancel" style="margin-top:16px;">← Back to Links</a>
 <?php else: ?><div class="empty">Select a link and tap Stats</div><a href="admin.php?tab=links" class="cancel">← Back</a><?php endif; ?>
 </div>
-
 <div class="card <?= $tab==='settings'?'active':'' ?>">
 <h2>Settings — Get license</h2>
-<p style="color:var(--muted);font-size:13px;margin-bottom:14px;">If someone wants to use this script, create a 1-domain license. Share the key + token. Download the half starter zip. They upload it to public_html, open /install.php, enter the license, then remaining files come from this server.</p>
+<p style="color:var(--muted);font-size:13px;margin-bottom:14px;">Create a 1-domain license. Share key + token. Download starter zip.</p>
 <form method="POST">
 <input type="hidden" name="action" value="create_license">
 <input type="text" name="customer_name" placeholder="Customer name" required>
@@ -208,7 +213,7 @@ $pOn=!array_key_exists('preview_enabled',$link)||(int)$link['preview_enabled']==
 <?php else: foreach ($licenses as $lic): ?>
 <div class="link-item">
 <div class="name" style="font-weight:600;"><?= htmlspecialchars($lic['customer_name']) ?></div>
-<div class="meta-line"><?= htmlspecialchars($lic['domain']) ?> · <span class="badge-<?= $lic['status']==='active'?'on':($lic['status']==='revoked'?'off':'on') ?>"><?= htmlspecialchars($lic['status']) ?></span></div>
+<div class="meta-line"><?= htmlspecialchars($lic['domain']) ?> · <?= htmlspecialchars($lic['status']) ?></div>
 <div class="meta-line">Key: <strong><?= htmlspecialchars($lic['license_key']) ?></strong></div>
 <div class="meta-line">Token: <strong><?= htmlspecialchars($lic['token']) ?></strong></div>
 <div class="actions">
@@ -216,12 +221,10 @@ $pOn=!array_key_exists('preview_enabled',$link)||(int)$link['preview_enabled']==
 <button class="btn-copy" type="button" onclick="copyLink(this,'<?= htmlspecialchars($lic['token'], ENT_QUOTES) ?>')">Copy token</button>
 <a class="btn-stats" href="?download_pack=<?= (int)$lic['id'] ?>">Download 50% zip</a>
 <?php if ($lic['status'] !== 'revoked'): ?><a class="btn-del" href="?revoke_license=<?= (int)$lic['id'] ?>" onclick="return confirm('Revoke this license?')">Revoke</a><?php endif; ?>
-</div>
-</div>
+</div></div>
 <?php endforeach; endif; ?>
 </div>
 </div>
-
 <nav class="bottom-nav">
 <a href="admin.php?tab=home" class="nav-item <?= ($tab==='home'||$tab==='')?'active':'' ?>"><i data-lucide="home"></i>Home</a>
 <a href="admin.php?tab=create" class="nav-item <?= $tab==='create'?'active':'' ?>"><i data-lucide="plus"></i>Create</a>
@@ -242,19 +245,36 @@ $pOn=!array_key_exists('preview_enabled',$link)||(int)$link['preview_enabled']==
     if(window.lucide)lucide.createIcons();
   }
   setIcon(saved);
-  document.getElementById('themeToggle').addEventListener('click',function(){
+  const themeBtn=document.getElementById('themeToggle');
+  if(themeBtn) themeBtn.addEventListener('click',function(){
     const next=root.getAttribute('data-theme')==='dark'?'light':'dark';
     root.setAttribute('data-theme',next);
     localStorage.setItem('sl_theme',next);
     setIcon(next);
   });
-  if(window.lucide)lucide.createIcons();
-  const menuBtn=document.getElementById('menuBtn');
-  const menuDrop=document.getElementById('menuDrop');
-  if(menuBtn&&menuDrop){
-    menuBtn.addEventListener('click',function(e){e.stopPropagation();menuDrop.classList.toggle('open');});
-    document.addEventListener('click',function(){menuDrop.classList.remove('open');});
+  const drawer=document.getElementById('drawer');
+  const overlay=document.getElementById('drawerOverlay');
+  function openDrawer(){
+    if(!drawer)return;
+    drawer.classList.add('open');
+    if(overlay) overlay.classList.add('open');
+    document.body.classList.add('drawer-open');
+    drawer.setAttribute('aria-hidden','false');
   }
+  function closeDrawer(){
+    if(!drawer)return;
+    drawer.classList.remove('open');
+    if(overlay) overlay.classList.remove('open');
+    document.body.classList.remove('drawer-open');
+    drawer.setAttribute('aria-hidden','true');
+  }
+  const menuBtn=document.getElementById('menuBtn');
+  const closeBtn=document.getElementById('drawerClose');
+  if(menuBtn) menuBtn.addEventListener('click',function(e){e.stopPropagation();openDrawer();});
+  if(closeBtn) closeBtn.addEventListener('click',closeDrawer);
+  if(overlay) overlay.addEventListener('click',closeDrawer);
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeDrawer(); });
+  if(window.lucide)lucide.createIcons();
 })();
 function copyLink(btn,url){
   navigator.clipboard.writeText(url).then(()=>{
