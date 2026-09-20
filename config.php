@@ -29,15 +29,20 @@ if (empty($dbname) || empty($username)) {
     die("Please configure database details in .env file");
 }
 
+$pdoOpts = [
+    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    PDO::ATTR_EMULATE_PREPARES   => false,
+];
 try {
-    $dsn = "mysql:host=$host;dbname=$dbname;charset=$charset";
-    $pdo = new PDO($dsn, $username, $password, [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        PDO::ATTR_EMULATE_PREPARES   => false,
-    ]);
+    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=$charset", $username, $password, $pdoOpts);
 } catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
+    $retryHost = ($host === 'localhost') ? '127.0.0.1' : 'localhost';
+    try {
+        $pdo = new PDO("mysql:host=$retryHost;dbname=$dbname;charset=$charset", $username, $password, $pdoOpts);
+    } catch (PDOException $e2) {
+        die("Database connection failed: " . $e2->getMessage() . " — .env mein DB_HOST=127.0.0.1 rakho");
+    }
 }
 
 try {
@@ -150,19 +155,31 @@ try {
 function isLoggedIn() {
     return isset($_SESSION['user_id']);
 }
+
 function isAdmin() {
     return isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
 }
+
 function requireLogin() {
-    if (!isLoggedIn()) { header("Location: login.php"); exit; }
+    if (!isLoggedIn()) {
+        header("Location: login.php");
+        exit;
+    }
 }
+
 function requireAdmin() {
     requireLogin();
-    if (!isAdmin()) { header("Location: dashboard.php"); exit; }
+    if (!isAdmin()) {
+        header("Location: dashboard.php");
+        exit;
+    }
 }
+
 function generateShortCode($length = 6) {
     $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     $code = '';
-    for ($i = 0; $i < $length; $i++) $code .= $chars[random_int(0, strlen($chars) - 1)];
+    for ($i = 0; $i < $length; $i++) {
+        $code .= $chars[random_int(0, strlen($chars) - 1)];
+    }
     return $code;
 }
