@@ -46,9 +46,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", 'Segoe UI', Roboto, sans-serif;
             min-height: 100vh;
-            background: linear-gradient(135deg, #4c1d95 0%, #7c3aed 50%, #a78bfa 100%);
+            background:
+                radial-gradient(1200px 600px at 8% -12%, rgba(255,255,255,.9), transparent 55%),
+                linear-gradient(180deg, #f2f2f7 0%, #e5e5ea 100%);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -56,52 +58,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             padding: 20px;
         }
         .glass {
-            background: rgba(255, 255, 255, 0.12);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.74);
+            backdrop-filter: blur(22px) saturate(180%);
+            -webkit-backdrop-filter: blur(22px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.85);
             border-radius: 24px;
             padding: 40px 30px;
             width: 100%;
             max-width: 400px;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+            box-shadow: 0 10px 30px rgba(15,15,20,.06);
         }
         .logo { text-align: center; margin-bottom: 30px; }
-        .logo h1 { color: white; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
-        .logo p { color: rgba(255,255,255,0.7); font-size: 14px; margin-top: 6px; }
+        .logo h1 { color: #1c1c1e; font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+        .logo p { color: #8e8e93; font-size: 14px; margin-top: 6px; }
         .form-group { margin-bottom: 18px; }
-        label { display: block; color: rgba(255,255,255,0.85); font-size: 13px; margin-bottom: 6px; font-weight: 500; }
+        label { display: block; color: #6e6e73; font-size: 13px; margin-bottom: 6px; font-weight: 500; }
         input {
             width: 100%;
             padding: 14px 16px;
             border-radius: 14px;
-            border: 1px solid rgba(255,255,255,0.2);
-            background: rgba(255,255,255,0.1);
-            color: white;
+            border: 1px solid rgba(60,60,67,.18);
+            background: rgba(255,255,255,.92);
+            color: #1c1c1e;
             font-size: 16px;
             outline: none;
-            transition: all 0.2s;
         }
-        input::placeholder { color: rgba(255,255,255,0.4); }
-        input:focus { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.15); }
+        input::placeholder { color: #aeaeb2; }
+        input:focus { border-color: #1c1c1e; }
         .btn {
             width: 100%;
             padding: 15px;
             border: none;
             border-radius: 14px;
-            background: white;
-            color: #6d28d9;
+            background: #1c1c1e;
+            color: #f5f5f7;
             font-size: 16px;
             font-weight: 700;
             cursor: pointer;
             margin-top: 10px;
-            transition: transform 0.15s, box-shadow 0.15s;
         }
-        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .error {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            color: #fecaca;
+            background: rgba(255, 59, 48, 0.12);
+            border: 1px solid rgba(215, 0, 21, 0.25);
+            color: #d70015;
             padding: 12px;
             border-radius: 12px;
             font-size: 14px;
@@ -116,11 +115,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <h1>ShortLink</h1>
             <p>Sign in to continue</p>
         </div>
-
         <?php if ($error): ?>
             <div class="error"><?= htmlspecialchars($error) ?></div>
         <?php endif; ?>
-
         <form method="POST">
             <div class="form-group">
                 <label>Email</label>
@@ -134,6 +131,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="submit" class="btn">Login</button>
         </form>
     </div>
-
 </body>
 </html>
