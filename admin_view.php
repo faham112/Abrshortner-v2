@@ -50,9 +50,38 @@
 <div class="stat-row"><span><?= htmlspecialchars($row['device']) ?></span><span><?= (int)$row['c'] ?></span></div>
 <div class="stat-bar-wrap"><div class="stat-bar" style="width:<?= $pct ?>%"></div></div>
 <?php endforeach; if (empty($by_device)): ?><p class="empty" style="padding:8px 0;">No clicks yet</p><?php endif; ?>
+<div class="chart-grid">
+<div class="chart-box"><h4>Browser</h4>
+<?php $maxb=barMax($by_browser); foreach (array_slice($by_browser,0,6) as $row): $pct=round(((int)$row['c']/$maxb)*100); ?>
+<div class="stat-row"><span><?= htmlspecialchars($row['browser']) ?></span><span><?= (int)$row['c'] ?></span></div>
+<div class="stat-bar-wrap"><div class="stat-bar blue" style="width:<?= $pct ?>%"></div></div>
+<?php endforeach; if (empty($by_browser)): ?><p class="empty" style="padding:6px 0;font-size:12px;">No data</p><?php endif; ?></div>
+<div class="chart-box"><h4>OS</h4>
+<?php $maxo=barMax($by_os); foreach (array_slice($by_os,0,6) as $row): $pct=round(((int)$row['c']/$maxo)*100); ?>
+<div class="stat-row"><span><?= htmlspecialchars($row['os']) ?></span><span><?= (int)$row['c'] ?></span></div>
+<div class="stat-bar-wrap"><div class="stat-bar orange" style="width:<?= $pct ?>%"></div></div>
+<?php endforeach; if (empty($by_os)): ?><p class="empty" style="padding:6px 0;font-size:12px;">No data</p><?php endif; ?></div>
+</div>
+<h3>By Country</h3>
+<?php $maxc=barMax($by_country); foreach ($by_country as $row): $pct=round(((int)$row['c']/$maxc)*100); ?>
+<div class="stat-row"><span><?= htmlspecialchars($row['country']) ?></span><span><?= (int)$row['c'] ?></span></div>
+<div class="stat-bar-wrap"><div class="stat-bar green" style="width:<?= $pct ?>%"></div></div>
+<?php endforeach; if (empty($by_country)): ?><p class="empty" style="padding:8px 0;">No data yet</p><?php endif; ?>
+<h3>Top Links</h3>
+<?php if (empty($top_links)): ?><p class="empty" style="padding:8px 0;">No links</p>
+<?php else: $maxt=max(1,max(array_column($top_links,'clicks'))); foreach ($top_links as $tl): $pct=round(((int)$tl['clicks']/$maxt)*100); ?>
+<div class="stat-row"><span style="max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">/<?= htmlspecialchars($tl['short_code']) ?></span><span><?= (int)$tl['clicks'] ?></span></div>
+<div class="stat-bar-wrap"><div class="stat-bar" style="width:<?= $pct ?>%"></div></div>
+<?php endforeach; endif; ?>
+<h3>Recent Clicks</h3>
+<?php foreach ($recent_clicks_global as $c): ?>
+<div class="click-row"><strong>/<?= htmlspecialchars($c['short_code']??'?') ?></strong> · <?= htmlspecialchars($c['device']??'-') ?> · <?= htmlspecialchars($c['browser']??'-') ?><?php if (!empty($c['country'])): ?> · <?= htmlspecialchars($c['country']) ?><?php endif; ?><br><?= htmlspecialchars($c['ip']??'-') ?> · <?= htmlspecialchars($c['created_at']??'') ?></div>
+<?php endforeach; if (empty($recent_clicks_global)): ?><p class="empty" style="padding:8px 0;">No clicks logged yet</p><?php endif; ?>
 </div>
 <div class="card <?= $tab==='create'?'active':'' ?>">
 <h2><?= $edit_data?'Edit Link':'Create Short Link' ?></h2>
+<?php $editPreviewOn=true; if ($edit_data && array_key_exists('preview_enabled',$edit_data)) $editPreviewOn=((int)$edit_data['preview_enabled']===1); ?>
+<?php if ($edit_data && !$editPreviewOn): ?><div class="msg msg-warn">Preview is OFF</div><?php endif; ?>
 <form method="POST" enctype="multipart/form-data">
 <input type="hidden" name="action" value="create_link">
 <?php if ($edit_data): ?><input type="hidden" name="id" value="<?= (int)$edit_data['id'] ?>"><?php endif; ?>
@@ -63,9 +92,28 @@
 <input type="file" name="image_file" accept="image/*" class="file-input">
 <input type="text" name="image_url" placeholder="Image URL (Optional)" value="<?= htmlspecialchars($edit_data['image_url']??'') ?>">
 <div class="toggle-row"><div><div class="toggle-text">Link Preview</div><div class="toggle-sub">ON = show · OFF = hide</div></div>
-<label class="switch"><input type="checkbox" name="preview_enabled" value="1" checked><span class="slider"></span></label></div>
+<label class="switch"><input type="checkbox" name="preview_enabled" value="1" <?= $editPreviewOn?'checked':'' ?> onchange="var a=document.getElementById('previewOffAlert');if(a)a.style.display=this.checked?'none':'block';"><span class="slider"></span></label></div>
+<div id="previewOffAlert" class="msg msg-warn" style="display:<?= $editPreviewOn?'none':'block' ?>;">Preview OFF</div>
 <button type="submit" class="btn-primary"><?= $edit_data?'Update Link':'Shorten Now' ?></button>
+<?php if ($edit_data): ?><a href="admin.php?tab=create" class="cancel">Cancel</a><?php endif; ?>
 </form>
+<?php if (!$edit_data): ?>
+<h3>Recently Made (Last 5)</h3>
+<?php if (empty($recent5)): ?><div class="empty" style="padding:12px 0;">No links yet</div>
+<?php else: foreach ($recent5 as $link): $pOn=!array_key_exists('preview_enabled',$link)||(int)$link['preview_enabled']===1; ?>
+<div class="link-item">
+<div class="short-url"><a href="https://<?= $host ?>/<?= htmlspecialchars($link['short_code']) ?>" target="_blank">https://<?= $host ?>/<?= htmlspecialchars($link['short_code']) ?></a>
+<span class="clicks"><?= (int)$link['clicks'] ?> clicks</span>
+<?php if ($pOn): ?><span class="badge-on">ON</span><?php else: ?><span class="badge-off">OFF</span><?php endif; ?></div>
+<div class="long-url"><?= htmlspecialchars($link['long_url']) ?></div>
+<div class="meta-line">by <?= htmlspecialchars($link['user_name']??'') ?></div>
+<div class="actions">
+<button class="btn-copy" onclick="copyLink(this,'https://<?= $host ?>/<?= htmlspecialchars($link['short_code']) ?>')">Copy</button>
+<a href="?stats=<?= (int)$link['id'] ?>" class="btn-stats">Stats</a>
+<a href="?tab=create&edit=<?= (int)$link['id'] ?>" class="btn-edit">Edit</a>
+<a href="?delete_link=<?= (int)$link['id'] ?>" class="btn-del" onclick="return confirm('Delete?')">Del</a>
+</div></div>
+<?php endforeach; endif; endif; ?>
 </div>
 <div class="card <?= $tab==='users'?'active':'' ?>">
 <h2>Create New User</h2>
@@ -74,13 +122,60 @@
 <input type="email" name="email" placeholder="Email" required>
 <input type="text" name="password" placeholder="Password (min 6)" required>
 <button type="submit" class="btn-primary">Create User</button></form>
+<h2 style="margin-top:24px;">All Users (<?= count($users) ?>)</h2>
+<?php if (empty($users)): ?><div class="empty">No users yet</div>
+<?php else: foreach ($users as $u): ?>
+<div class="user-item"><div class="user-info"><div class="name"><?= htmlspecialchars($u['name']) ?></div><div class="email"><?= htmlspecialchars($u['email']) ?></div><div class="meta"><?= (int)$u['link_count'] ?> links</div></div>
+<a href="?delete_user=<?= (int)$u['id'] ?>" class="del-btn" onclick="return confirm('Delete?')">Delete</a></div>
+<?php endforeach; endif; ?>
 </div>
 <div class="card <?= $tab==='links'?'active':'' ?>">
 <h2>All Links</h2>
 <form method="GET" class="search-bar"><input type="hidden" name="tab" value="links">
 <input type="text" name="search" placeholder="Search..." value="<?= htmlspecialchars($search) ?>">
 <button type="submit">Search</button></form>
-<?php if (empty($allLinks)): ?><div class="empty">No links found</div><?php endif; ?>
+<?php if (empty($allLinks)): ?><div class="empty">No links found</div>
+<?php else: foreach ($allLinks as $link): $pOn=!array_key_exists('preview_enabled',$link)||(int)$link['preview_enabled']===1; ?>
+<div class="link-item">
+<div class="short-url"><a href="https://<?= $host ?>/<?= htmlspecialchars($link['short_code']) ?>" target="_blank">https://<?= $host ?>/<?= htmlspecialchars($link['short_code']) ?></a>
+<span class="clicks"><?= (int)$link['clicks'] ?> clicks</span>
+<?php if ($pOn): ?><span class="badge-on">ON</span><?php else: ?><span class="badge-off">OFF</span><?php endif; ?></div>
+<div class="long-url"><?= htmlspecialchars($link['long_url']) ?></div>
+<div class="meta-line">by <?= htmlspecialchars($link['user_name']??'') ?></div>
+<div class="actions">
+<button class="btn-copy" onclick="copyLink(this,'https://<?= $host ?>/<?= htmlspecialchars($link['short_code']) ?>')">Copy</button>
+<a href="?stats=<?= (int)$link['id'] ?>" class="btn-stats">Stats</a>
+<a href="?tab=create&edit=<?= (int)$link['id'] ?>" class="btn-edit">Edit</a>
+<a href="?delete_link=<?= (int)$link['id'] ?>" class="btn-del" onclick="return confirm('Delete?')">Del</a>
+</div></div>
+<?php endforeach; endif; ?>
+</div>
+<div class="card <?= $tab==='stats'?'active':'' ?>">
+<?php if ($stats): ?>
+<h2>Link Analytics</h2>
+<p style="font-size:13px;color:var(--accent);margin-bottom:6px;word-break:break-all;">https://<?= $host ?>/<?= htmlspecialchars($stats['short_code']) ?></p>
+<p style="font-size:12px;color:var(--muted);margin-bottom:14px;"><?= (int)$stats['clicks'] ?> clicks · by <?= htmlspecialchars($stats['user_name']??'-') ?></p>
+<?php if ($stats_error): ?><div class="msg error"><?= htmlspecialchars($stats_error) ?></div><?php endif; ?>
+<h3>Device</h3>
+<?php $maxd=barMax($s_device); foreach ($s_device as $row): $pct=round(((int)$row['c']/$maxd)*100); ?>
+<div class="stat-row"><span><?= htmlspecialchars($row['device']) ?></span><span><?= (int)$row['c'] ?></span></div>
+<div class="stat-bar-wrap"><div class="stat-bar" style="width:<?= $pct ?>%"></div></div>
+<?php endforeach; if (empty($s_device)): ?><p class="empty" style="padding:8px 0;">No data</p><?php endif; ?>
+<h3>Browser</h3>
+<?php foreach ($s_browser as $row): ?><div class="stat-row"><span><?= htmlspecialchars($row['browser']) ?></span><span><?= (int)$row['c'] ?></span></div><?php endforeach; ?>
+<?php if (empty($s_browser)): ?><p class="empty" style="padding:8px 0;">No data</p><?php endif; ?>
+<h3>Country</h3>
+<?php foreach ($s_country as $row): ?><div class="stat-row"><span><?= htmlspecialchars($row['country']) ?></span><span><?= (int)$row['c'] ?></span></div><?php endforeach; ?>
+<?php if (empty($s_country)): ?><p class="empty" style="padding:8px 0;">No data</p><?php endif; ?>
+<h3>Traffic Sources</h3>
+<?php foreach ($s_referer as $row): ?><div class="stat-row"><span style="max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= htmlspecialchars(mb_substr($row['ref'],0,55)) ?></span><span><?= (int)$row['c'] ?></span></div><?php endforeach; ?>
+<?php if (empty($s_referer)): ?><p class="empty" style="padding:8px 0;">No data</p><?php endif; ?>
+<h3>Recent Clicks</h3>
+<?php foreach ($recent_clicks as $c): ?>
+<div class="click-row"><strong><?= htmlspecialchars($c['device']??'-') ?></strong> · <?= htmlspecialchars($c['browser']??'-') ?> · <?= htmlspecialchars($c['os']??'-') ?><?php if (!empty($c['country'])): ?> · <?= htmlspecialchars($c['country']) ?><?php endif; ?><br>IP: <?= htmlspecialchars($c['ip']??'-') ?> · <?= htmlspecialchars($c['created_at']??'') ?></div>
+<?php endforeach; if (empty($recent_clicks)): ?><p class="empty" style="padding:8px 0;">No clicks yet</p><?php endif; ?>
+<a href="admin.php?tab=links" class="cancel" style="margin-top:16px;">← Back to Links</a>
+<?php else: ?><div class="empty">Select a link and tap Stats</div><a href="admin.php?tab=links" class="cancel">← Back</a><?php endif; ?>
 </div>
 </div>
 <nav class="bottom-nav">
@@ -111,7 +206,10 @@
   if(window.lucide)lucide.createIcons();
 })();
 function copyLink(btn,url){
-  navigator.clipboard.writeText(url).then(()=>{ const o=btn.innerText;btn.innerText='Copied!'; setTimeout(()=>{btn.innerText=o;},1500); });
+  navigator.clipboard.writeText(url).then(()=>{
+    const o=btn.innerText;btn.innerText='Copied!';btn.style.background='#22c55e';
+    setTimeout(()=>{btn.innerText=o;btn.style.background='';},1500);
+  }).catch(()=>alert('Copy failed'));
 }
 </script>
 </body>
