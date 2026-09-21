@@ -9,7 +9,7 @@ $host = $_SERVER['HTTP_HOST'] ?? '';
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>License HQ - ShortLink</title>
 <script src="https://unpkg.com/lucide@latest"></script>
-<link rel="stylesheet" href="assets/app.css?v=20260920d">
+<link rel="stylesheet" href="assets/app.css?v=20260921a">
 </head>
 <body>
 <div class="drawer-overlay" id="drawerOverlay"></div>
@@ -43,7 +43,7 @@ $host = $_SERVER['HTTP_HOST'] ?? '';
 </div>
 
 <div class="container">
-<?php if (isset($_GET['msg'])): ?><div class="msg"><?php $msgs=['license_created'=>'License created. Share key + token and send starter zip.','license_revoked'=>'License revoked']; echo $msgs[$_GET['msg']]??''; ?></div><?php endif; ?>
+<?php if (isset($_GET['msg'])): ?><div class="msg"><?php $msgs=['license_created'=>'License created. Share key + token and send starter zip.','license_revoked'=>'License revoked. Ab isi domain par naya license generate kar sakte ho.','license_deleted'=>'License deleted. Ab naya license generate kar sakte ho.']; echo $msgs[$_GET['msg']]??''; ?></div><?php endif; ?>
 <?php if (!empty($message)): ?><div class="msg <?= !empty($is_error)?'error':'' ?>"><?= htmlspecialchars($message) ?></div><?php endif; ?>
 
 <div class="card active">
@@ -67,7 +67,8 @@ $host = $_SERVER['HTTP_HOST'] ?? '';
 <button class="btn-copy" type="button" onclick="copyLink(this,'<?= htmlspecialchars($lic['license_key'], ENT_QUOTES) ?>')">Copy key</button>
 <button class="btn-copy" type="button" onclick="copyLink(this,'<?= htmlspecialchars($lic['token'], ENT_QUOTES) ?>')">Copy token</button>
 <a class="btn-stats" href="admin.php?download_pack=<?= (int)$lic['id'] ?>">Download 50% zip</a>
-<?php if ($lic['status'] !== 'revoked'): ?><a class="btn-del" href="admin.php?revoke_license=<?= (int)$lic['id'] ?>" onclick="return confirm('Revoke?')">Revoke</a><?php endif; ?>
+<?php if ($lic['status'] !== 'revoked'): ?><a class="btn-del" href="admin.php?revoke_license=<?= (int)$lic['id'] ?>" onclick="return confirm('Revoke? Domain phir naya license le sakta hai.')">Revoke</a><?php endif; ?>
+<a class="btn-del" href="admin.php?delete_license=<?= (int)$lic['id'] ?>" onclick="return confirm('Delete permanently? Uske baad isi domain ka naya license generate ho sakta hai.')">Delete</a>
 </div>
 </div>
 <?php endforeach; endif; ?>
