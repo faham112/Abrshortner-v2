@@ -87,8 +87,7 @@ if (isset($_GET['delete_link'])) {
     $pdo->prepare('DELETE FROM urls WHERE id = ?')->execute([$id]);
     header('Location: admin.php?tab=links&msg=deleted'); exit;
 }
-
-if (function_exists('abrNormDomain') && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_license') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'create_license') {
     $cname = trim($_POST['customer_name'] ?? '');
     $site = trim($_POST['site_url'] ?? '');
     $domain = abrNormDomain($site);
@@ -98,12 +97,19 @@ if (function_exists('abrNormDomain') && $_SERVER['REQUEST_METHOD'] === 'POST' &&
         $is_error = true;
     } else {
         try {
-            $key = abrGenLicenseKey();
-            $token = bin2hex(random_bytes(16));
-            $pdo->prepare('INSERT INTO licenses (customer_name, site_url, domain, license_key, token, status) VALUES (?,?,?,?,?,?)')
-                ->execute([$cname, $site, $domain, $key, $token, 'pending']);
-            header('Location: admin_settings.php?msg=license_created');
-            exit;
+            $live = $pdo->prepare("SELECT id FROM licenses WHERE domain = ? AND status IN ('pending','active') LIMIT 1");
+            $live->execute([$domain]);
+            if ($live->fetch()) {
+                $message = 'Is domain par pehle se active/pending license hai. Pehle Revoke ya Delete karo, phir naya generate karo.';
+                $is_error = true;
+            } else {
+                $key = abrGenLicenseKey();
+                $token = bin2hex(random_bytes(16));
+                $pdo->prepare('INSERT INTO licenses (customer_name, site_url, domain, license_key, token, status) VALUES (?,?,?,?,?,?)')
+                    ->execute([$cname, $site, $domain, $key, $token, 'pending']);
+                header('Location: admin.php?tab=settings&msg=license_created');
+                exit;
+            }
         } catch (Exception $e) {
             $message = 'Could not create license';
             $is_error = true;
@@ -114,11 +120,18 @@ if (function_exists('abrNormDomain') && $_SERVER['REQUEST_METHOD'] === 'POST' &&
 if (isset($_GET['revoke_license'])) {
     $lid = (int)$_GET['revoke_license'];
     $pdo->prepare("UPDATE licenses SET status='revoked' WHERE id=?")->execute([$lid]);
-    header('Location: admin_settings.php?msg=license_revoked');
+    header('Location: admin.php?tab=settings&msg=license_revoked');
     exit;
 }
 
-if (function_exists('abrBuildStarterZip') && isset($_GET['download_pack'])) {
+if (isset($_GET['delete_license'])) {
+    $lid = (int)$_GET['delete_license'];
+    $pdo->prepare('DELETE FROM licenses WHERE id=?')->execute([$lid]);
+    header('Location: admin.php?tab=settings&msg=license_deleted');
+    exit;
+}
+
+if (isset($_GET['download_pack'])) {
     $lid = (int)$_GET['download_pack'];
     $st = $pdo->prepare('SELECT * FROM licenses WHERE id=?');
     $st->execute([$lid]);
