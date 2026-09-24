@@ -62,32 +62,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         try {
             if ($id > 0) {
-                $stmt = $pdo->prepare("UPDATE urls SET long_url=?, title=?, image_url=?, description=?, preview_enabled=? WHERE id=? AND user_id=?");
-                $stmt->execute([$long_url, $title ?: null, $image_url ?: null, $description ?: null, $preview_enabled, $id, $user_id]);
+                try {
+                    $stmt = $pdo->prepare("UPDATE urls SET long_url=?, title=?, image_url=?, description=?, preview_enabled=? WHERE id=? AND user_id=?");
+                    $stmt->execute([$long_url, $title ?: null, $image_url ?: null, $description ?: null, $preview_enabled, $id, $user_id]);
+                } catch (PDOException $e) {
+                    $stmt = $pdo->prepare("UPDATE urls SET long_url=?, title=?, image_url=?, description=? WHERE id=? AND user_id=?");
+                    $stmt->execute([$long_url, $title ?: null, $image_url ?: null, $description ?: null, $id, $user_id]);
+                }
                 header("Location: dashboard.php?tab=links&msg=updated");
                 exit;
             } else {
-                $short_code = generateShortCode();
-                $attempts = 0;
-                $created = false;
-                while ($attempts < 5) {
-                    try {
-                        $stmt = $pdo->prepare("INSERT INTO urls (user_id, short_code, long_url, title, image_url, description, preview_enabled) VALUES (?,?,?,?,?,?,?)");
-                        $stmt->execute([$user_id, $short_code, $long_url, $title ?: null, $image_url ?: null, $description ?: null, $preview_enabled]);
-                        $created = true;
-                        break;
-                    } catch (PDOException $e) {
-                        $short_code = generateShortCode();
-                        $attempts++;
-                    }
-                }
-                if ($created) {
+                try {
+                    abrCreateShortUrl($pdo, $user_id, $long_url, $title, $image_url, $description, $preview_enabled);
                     header("Location: dashboard.php?tab=links&msg=created");
                     exit;
+                } catch (Exception $e) {
+                    $message = "Error creating link: " . $e->getMessage();
+                    $is_error = true;
+                    $tab = 'create';
                 }
-                $message = "Error creating link. Try again.";
-                $is_error = true;
-                $tab = 'create';
             }
         } catch (PDOException $e) {
             $message = "Database error: " . $e->getMessage();
