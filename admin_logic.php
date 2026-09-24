@@ -34,20 +34,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if (!preg_match('~^(?:f|ht)tps?://~i', $long_url)) $long_url = 'https://' . $long_url;
         try {
             if ($id > 0) {
-                $pdo->prepare('UPDATE urls SET long_url=?, title=?, image_url=?, description=?, preview_enabled=? WHERE id=?')
-                    ->execute([$long_url, $title ?: null, $image_url ?: null, $description ?: null, $preview_enabled, $id]);
+                try {
+                    $pdo->prepare('UPDATE urls SET long_url=?, title=?, image_url=?, description=?, preview_enabled=? WHERE id=?')
+                        ->execute([$long_url, $title ?: null, $image_url ?: null, $description ?: null, $preview_enabled, $id]);
+                } catch (PDOException $e) {
+                    $pdo->prepare('UPDATE urls SET long_url=?, title=?, image_url=?, description=? WHERE id=?')
+                        ->execute([$long_url, $title ?: null, $image_url ?: null, $description ?: null, $id]);
+                }
                 header('Location: admin.php?tab=links&msg=updated'); exit;
             } else {
-                $short_code = generateShortCode(); $ok = false;
+                $short_code = generateShortCode(); $ok = false; $lastErr = '';
                 for ($i = 0; $i < 5; $i++) {
                     try {
                         $pdo->prepare('INSERT INTO urls (user_id, short_code, long_url, title, image_url, description, preview_enabled) VALUES (?,?,?,?,?,?,?)')
                             ->execute([$admin_id, $short_code, $long_url, $title ?: null, $image_url ?: null, $description ?: null, $preview_enabled]);
                         $ok = true; break;
-                    } catch (PDOException $e) { $short_code = generateShortCode(); }
+                    } catch (PDOException $e) {
+                        $lastErr = $e->getMessage();
+                        if (stripos($lastErr, 'preview_enabled') !== false) {
+                            try {
+                                $pdo->prepare('INSERT INTO urls (user_id, short_code, long_url, title, image_url, description) VALUES (?,?,?,?,?,?)')
+                                    ->execute([$admin_id, $short_code, $long_url, $title ?: null, $image_url ?: null, $description ?: null]);
+                                $ok = true; break;
+                            } catch (PDOException $e3) { $lastErr = $e3->getMessage(); }
+                        }
+                        if (strpos($lastErr, '1062') === false && stripos($lastErr, 'Duplicate') === false) {
+                            break;
+                        }
+                        $short_code = generateShortCode();
+                    }
                 }
                 if ($ok) { header('Location: admin.php?tab=links&msg=created'); exit; }
-                $message = 'Error creating link'; $is_error = true; $tab = 'create';
+                $message = 'Error creating link: ' . $lastErr; $is_error = true; $tab = 'create';
             }
         } catch (PDOException $e) { $message = 'DB error: ' . $e->getMessage(); $is_error = true; $tab = 'create'; }
     }
