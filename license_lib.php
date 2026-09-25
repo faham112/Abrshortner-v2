@@ -30,10 +30,28 @@ function abrGenLicenseKey() {
 }
 function abrLicenseServerBase() {
     $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['SERVER_PORT'] ?? '') == 443);
-    return ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'test.link666xx.com');
+    return ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'admin.link666xx.com');
+}
+function abrHqSkipFiles() {
+    return ['license_api.php','license_lib.php','admin_settings.php','FIX-NOTES.md','.env','.env.example'];
 }
 function abrPayloadFiles() {
     return ['config.php','login.php','logout.php','index.php','redirect.php','.htaccess','admin.php','admin_logic.php','admin_view.php','dashboard.php','dashboard_logic.php','dashboard_view.php','database.sql','assets/app.css','uploads/.gitkeep'];
+}
+function abrCustomerizeAdminView($html) {
+    $html = preg_replace('~<a href="admin_settings\.php"[^>]*>.*?</a>~s', '', $html);
+    $html = preg_replace('~<form[^>]*>\s*<input type="hidden" name="action" value="create_license">.*?</form>~s', '', $html);
+    $html = preg_replace('~<h3>Licenses.*?(?=<div class="card|</div>\s*<nav|</body>)~s', '', $html);
+    $html = str_replace('Settings — Get license', 'Settings', $html);
+    $html = preg_replace('~If someone wants to use this script.*?</p>~s', '<p>Site settings for this licensed copy.</p>', $html);
+    return $html;
+}
+function abrCustomerizeAdminLogic($src) {
+    $src = preg_replace('~if \(is_file\(__DIR__ \. \'/license_lib\.php\'\)\) \{.*?\}~s', '', $src);
+    $src = preg_replace('~if \(\$_SERVER\[\'REQUEST_METHOD\'\] === \'POST\' && isset\(\$_POST\[\'action\'\]\) && \$_POST\[\'action\'\] === \'create_license\'\) \{.*?(?=\nif \(\$_SERVER|if \(isset\(\$_GET\[\'revoke)|if \(isset\(\$_GET\[\'delete_user))~s', '', $src);
+    $src = preg_replace('~if \(isset\(\$_GET\[\'revoke_license\'\]\)\) \{.*?exit;\n\}~s', '', $src);
+    $src = preg_replace('~if \(isset\(\$_GET\[\'delete_license\'\]\)\) \{.*?exit;\n\}~s', '', $src);
+    return $src;
 }
 function abrBuildStarterZip($license, $serverBase) {
     if (!class_exists('ZipArchive')) throw new RuntimeException('PHP zip extension missing');
@@ -43,7 +61,7 @@ function abrBuildStarterZip($license, $serverBase) {
     $zip->addFromString('install.php', abrInstallTemplate($serverBase));
     $zip->addFromString('index.php', "<?php\nheader('Location: install.php');\nexit;\n");
     $zip->addFromString('.htaccess', "DirectoryIndex install.php index.php\n<FilesMatch \"\\.(env|json)$\">\nRequire all denied\n</FilesMatch>\n");
-    $zip->addFromString('README.txt', "Upload to public_html. Open /install.php. Step1 license. Step2 Download resources. Step3 Login.\nKey: {$license['license_key']}\nToken: {$license['token']}\nDomain: {$license['domain']}\n");
+    $zip->addFromString('README.txt', "Customer shortener starter only. No License HQ.\nUpload public_html. Open /install.php.\nKey: {$license['license_key']}\nToken: {$license['token']}\nDomain: {$license['domain']}\n");
     $zip->close();
     return $tmp;
 }
@@ -52,7 +70,15 @@ function abrBuildPayloadZip($root) {
     $tmp = sys_get_temp_dir() . '/abr_full_' . bin2hex(random_bytes(4)) . '.zip';
     $zip = new ZipArchive();
     if ($zip->open($tmp, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Cannot create payload zip');
-    foreach (abrPayloadFiles() as $rel) { if (is_file($root . '/' . $rel)) $zip->addFile($root . '/' . $rel, $rel); }
+    $skip = array_flip(abrHqSkipFiles());
+    foreach (abrPayloadFiles() as $rel) {
+        if (isset($skip[$rel])) continue;
+        $path = $root . '/' . $rel;
+        if (!is_file($path)) continue;
+        if ($rel === 'admin_view.php') { $zip->addFromString($rel, abrCustomerizeAdminView(file_get_contents($path))); continue; }
+        if ($rel === 'admin_logic.php') { $zip->addFromString($rel, abrCustomerizeAdminLogic(file_get_contents($path))); continue; }
+        $zip->addFile($path, $rel);
+    }
     $zip->close();
     return $tmp;
 }
@@ -82,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $json = abrCallLicense($LICENSE_SERVER, 'check', $key, $token, $domain);
             if (!is_array($json) || empty($json['ok'])) { $err = $json['error'] ?? 'License rejected.'; $step=1; }
             else {
-                $state = compact('key') + ['step'=>2,'license_key'=>$key,'token'=>$token,'domain'=>$domain,'db_host'=>$dbHost,'db_name'=>$dbName,'db_user'=>$dbUser,'db_pass'=>$dbPass,'admin_name'=>$adminName,'admin_email'=>$adminEmail,'admin_password'=>$adminPass];
+                $state = ['step'=>2,'license_key'=>$key,'token'=>$token,'domain'=>$domain,'db_host'=>$dbHost,'db_name'=>$dbName,'db_user'=>$dbUser,'db_pass'=>$dbPass,'admin_name'=>$adminName,'admin_email'=>$adminEmail,'admin_password'=>$adminPass];
                 file_put_contents($stateFile, json_encode($state)); $step=2;
             }
         }
